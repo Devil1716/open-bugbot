@@ -1,0 +1,30 @@
+name: 'OpenBugbot'
+description: 'AI-powered code review agent'
+inputs:
+  github-token:
+    description: 'GitHub Token for posting comments'
+    required: true
+  openai-api-key:
+    description: 'OpenAI API Key (or other provider)'
+    required: false
+  model:
+    description: 'Model to use (default: gpt-4o)'
+    required: false
+    default: 'gpt-4o'
+  url:
+    description: 'Base URL for LLM'
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Run OpenBugbot
+      run: |
+        node ${{ github.action_path }}/dist/cli.js diff \
+          --ci \
+          --commit ${{ github.event.pull_request.head.sha }} \
+          --model "${{ inputs.model }}" \
+          ${{ inputs.url && format('--url {0}', inputs.url) || '' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}

@@ -77,8 +77,15 @@ program
     .option('-t, --target <string>', 'Git diff target (default: HEAD)', 'HEAD')
     .option('-m, --model <string>', 'Model to use', 'mistral')
     .option('--url <string>', 'LLM Base URL', 'http://localhost:11434/v1')
+    .option('--ci', 'Run in CI mode (posts comments to GitHub)')
+    .option('--commit <string>', 'Commit ID to comment on (required for --ci)')
     .action(async (options) => {
     try {
+        const { loadConfig } = await Promise.resolve().then(() => __importStar(require('./config')));
+        const config = loadConfig();
+        // Merge config with options (flags take precedence)
+        const model = options.model !== 'mistral' ? options.model : (config.model || 'mistral');
+        const baseUrl = options.url !== 'http://localhost:11434/v1' ? options.url : (config.baseUrl || 'http://localhost:11434/v1');
         console.log(chalk_1.default.blue('Fetching git diff...'));
         const { getGitDiff } = await Promise.resolve().then(() => __importStar(require('./git')));
         const diffOutput = await getGitDiff(options.target);
@@ -90,19 +97,47 @@ program
         const files = parseGitDiff(diffOutput);
         console.log(chalk_1.default.blue(`Found ${files.length} changed files.`));
         const llm = new llm_client_1.LocalLLMClient({
-            baseUrl: options.url,
-            model: options.model
+            baseUrl: baseUrl,
+            model: model,
+            apiKey: process.env.OPENAI_API_KEY // Ensure env var is passed if config misses it
         });
+        const { AiEngine } = await Promise.resolve().then(() => __importStar(require('./ai-engine')));
+        const aiEngine = new AiEngine(llm, config.systemPrompt);
+        // Initialize GitHub Client if in CI mode
+        let githubClient;
+        if (options.ci) {
+            const token = process.env.GITHUB_TOKEN;
+            if (!token) {
+                throw new Error('GITHUB_TOKEN is required for --ci mode');
+            }
+            const { GitHubClient } = await Promise.resolve().then(() => __importStar(require('./github-client')));
+            githubClient = new GitHubClient(token);
+            console.log(chalk_1.default.blue('GitHub integration enabled.'));
+        }
         for (const file of files) {
             console.log(chalk_1.default.yellow(`Analyzing changes in ${file.to}...`));
-            const context = `
-Diff Context for ${file.to}:
-${file.chunks.join('\n\n')}
-`;
-            const analysis = await llm.analyzeCode(context, file.to);
-            console.log(chalk_1.default.green(`\n--- Report for ${file.to} ---\n`));
-            console.log(analysis);
-            console.log(chalk_1.default.green('\n--------------------------\n'));
+            const context = file.chunks.join('\n\n');
+            const report = await aiEngine.analyzeDiff(context, file.to);
+            if (report.issues.length === 0) {
+                console.log(chalk_1.default.green(`✓ No issues found in ${file.to}`));
+                continue;
+            }
+            console.log(chalk_1.default.red(`\nFound ${report.issues.length} issues in ${file.to}:`));
+            for (const [index, issue] of report.issues.entries()) {
+                const color = issue.severity === 'critical' || issue.severity === 'high' ? chalk_1.default.red : chalk_1.default.yellow;
+                const logMsg = `\n[${index + 1}] ${issue.type.toUpperCase()} (${issue.severity})\nLine: ${issue.line}\n${issue.description}\nSuggestion: ${issue.suggestion}`;
+                console.log(color(logMsg));
+                if (options.ci && githubClient && options.commit) {
+                    try {
+                        const body = `**[${issue.type.toUpperCase()}]** ${issue.description}\n\nSuggested Fix:\n\`\`\`typescript\n${issue.suggestion}\n\`\`\``;
+                        await githubClient.postReviewComment(file.to, issue.line, body, options.commit);
+                    }
+                    catch (e) {
+                        console.error(chalk_1.default.red(`Failed to comment on GitHub: ${e.message}`));
+                    }
+                }
+            }
+            console.log('\n');
         }
     }
     catch (error) {

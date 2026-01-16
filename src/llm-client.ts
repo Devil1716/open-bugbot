@@ -11,12 +11,14 @@ export class LocalLLMClient {
     private model: string;
 
     constructor(config: LLMConfig = {}) {
-        // Default to Ollama local instance
+        const apiKey = config.apiKey || process.env.OPENAI_API_KEY || 'ollama';
+        const baseUrl = config.baseUrl || (apiKey === 'ollama' ? 'http://localhost:11434/v1' : undefined);
+
         this.client = new OpenAI({
-            baseURL: config.baseUrl || 'http://localhost:11434/v1',
-            apiKey: config.apiKey || 'ollama', // Ollama doesn't typically require an API key
+            baseURL: baseUrl,
+            apiKey: apiKey,
         });
-        this.model = config.model || 'mistral'; // Default to a common small model
+        this.model = config.model || 'gpt-4o';
     }
 
     async analyzeCode(fileContent: string, filename: string): Promise<string> {
