@@ -6,6 +6,11 @@ export const BugSchema = z.object({
     line: z.number().describe('The line number where the issue occurs (relative to the file, not the diff chunk)'),
     description: z.string().describe('Concise explanation of the issue'),
     suggestion: z.string().describe('Code snippet or text suggesting a fix'),
+    fix: z.object({
+        type: z.enum(['replace']),
+        original: z.string().describe('The EXACT content to be replaced (must match file content exactly)'),
+        replacement: z.string().describe('The new content to replace with')
+    }).optional().describe('Automated fix if high confidence. Omit if unsure.')
 });
 
 export const BugReportSchema = z.object({

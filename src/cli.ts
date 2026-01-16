@@ -129,4 +129,50 @@ program
         }
     });
 
+
+program
+    .command('fix <file>')
+    .description('Interactively fix bugs in a specific file')
+    .option('-m, --model <string>', 'Model to use', 'mistral')
+    .option('--url <string>', 'LLM Base URL', 'http://localhost:11434/v1')
+    .action(async (filePath, options) => {
+        const absolutePath = path.resolve(filePath);
+        if (!fs.existsSync(absolutePath)) {
+            console.error(chalk.red(`Error: File not found: ${absolutePath}`));
+            process.exit(1);
+        }
+
+        const { loadConfig } = await import('./config');
+        const config = loadConfig();
+        // Merge config
+        const model = options.model !== 'mistral' ? options.model : (config.model || 'mistral');
+        const baseUrl = options.url !== 'http://localhost:11434/v1' ? options.url : (config.baseUrl || 'http://localhost:11434/v1');
+
+        console.log(chalk.blue(`Reading file: ${filePath}...`));
+        const fileContent = fs.readFileSync(absolutePath, 'utf-8');
+
+        const llm = new LocalLLMClient({
+            baseUrl: baseUrl,
+            model: model,
+            apiKey: process.env.OPENAI_API_KEY
+        });
+
+        const fakeDiff = `diff --git a/${filePath} b/${filePath}\nindex 0000000..1111111\n--- /dev/null\n+++ b/${filePath}\n@@ -1,${fileContent.split('\n').length} +1,${fileContent.split('\n').length} @@\n${fileContent.split('\n').map(l => '+' + l).join('\n')}`;
+
+        const { AiEngine } = await import('./ai-engine');
+        const aiEngine = new AiEngine(llm, config.systemPrompt);
+
+        console.log(chalk.yellow('Analyzing for fixes...'));
+        const report = await aiEngine.analyzeDiff(fakeDiff, filePath);
+
+        if (report.issues.length === 0) {
+            console.log(chalk.green('No issues found needing fixes.'));
+            return;
+        }
+
+        const { InteractiveReporter } = await import('./interactive-ui');
+        const reporter = new InteractiveReporter();
+        await reporter.reviewAndFix(report.issues, absolutePath);
+    });
+
 program.parse();
