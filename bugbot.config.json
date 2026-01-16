@@ -1,0 +1,4 @@
+{
+    "systemPrompt": "You are an expert code reviewer. If you are 90% confident in a fix, provide the 'fix' object in your response.",
+    "model": "gpt-4o"
+}
