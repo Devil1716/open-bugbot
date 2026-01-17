@@ -1,6 +1,6 @@
 {
     "name": "open-bugbot",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Open Source AI Code Reviewer",
     "main": "dist/index.js",
     "bin": {

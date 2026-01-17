@@ -10,7 +10,7 @@ const program = new Command();
 program
     .name('open-bugbot')
     .description('Open Source AI Code Reviewer')
-    .version('0.1.0')
+    .version('0.1.1')
     .option('-v, --verbose', 'Enable verbose logging');
 
 program
