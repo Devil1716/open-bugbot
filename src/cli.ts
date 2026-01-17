@@ -131,6 +131,26 @@ program
 
 
 program
+    .command('init')
+    .description('Generate a default configuration file')
+    .action(() => {
+        const configPath = path.resolve('bugbot.config.json');
+        if (fs.existsSync(configPath)) {
+            console.log(chalk.yellow('Config file already exists: bugbot.config.json'));
+            return;
+        }
+
+        const defaultConfig = {
+            model: "mistral",
+            baseUrl: "http://localhost:11434/v1",
+            systemPrompt: "You are an expert code reviewer. Focus on security, performance, and best practices."
+        };
+
+        fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+        console.log(chalk.green('✓ Created bugbot.config.json'));
+    });
+
+program
     .command('fix <file>')
     .description('Interactively fix bugs in a specific file')
     .option('-m, --model <string>', 'Model to use', 'mistral')
