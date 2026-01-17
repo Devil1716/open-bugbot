@@ -7,6 +7,7 @@ export interface BugbotConfig {
     systemPrompt?: string;
     exclude?: string[]; // Glob patterns to exclude
     temperature?: number;
+    verbose?: boolean;
 }
 
 const CONFIG_FILES = [
@@ -15,21 +16,26 @@ const CONFIG_FILES = [
     '.bugbotrc'
 ];
 
-export function loadConfig(): BugbotConfig {
+export function loadConfig(verbose: boolean = false): BugbotConfig {
     const cwd = process.cwd();
 
     for (const file of CONFIG_FILES) {
         const configPath = path.join(cwd, file);
+        if (verbose) {
+            console.log(`Checking for config at: ${configPath}`);
+        }
         if (fs.existsSync(configPath)) {
             try {
+                if (verbose) console.log(`Found config file: ${configPath}`);
                 const content = fs.readFileSync(configPath, 'utf-8');
                 const config = JSON.parse(content);
-                return config;
+                return { ...config, verbose };
             } catch (e: any) {
                 console.warn(`Warning: Failed to parse config file ${file}: ${e.message}`);
             }
         }
     }
 
-    return {};
+    if (verbose) console.log('No config file found, using defaults.');
+    return { verbose };
 }

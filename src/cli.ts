@@ -10,7 +10,8 @@ const program = new Command();
 program
     .name('open-bugbot')
     .description('Open Source AI Code Reviewer')
-    .version('0.1.0');
+    .version('0.1.0')
+    .option('-v, --verbose', 'Enable verbose logging');
 
 program
     .command('scan <file>')
@@ -53,7 +54,8 @@ program
     .action(async (options) => {
         try {
             const { loadConfig } = await import('./config');
-            const config = loadConfig();
+            const verbose = options.verbose || program.opts().verbose;
+            const config = loadConfig(verbose);
 
             // Merge config with options (flags take precedence)
             const model = options.model !== 'mistral' ? options.model : (config.model || 'mistral');
@@ -163,7 +165,8 @@ program
         }
 
         const { loadConfig } = await import('./config');
-        const config = loadConfig();
+        const verbose = options.verbose || program.opts().verbose;
+        const config = loadConfig(verbose);
         // Merge config
         const model = options.model !== 'mistral' ? options.model : (config.model || 'mistral');
         const baseUrl = options.url !== 'http://localhost:11434/v1' ? options.url : (config.baseUrl || 'http://localhost:11434/v1');
